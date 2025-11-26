@@ -1,6 +1,8 @@
 
 export type Language = 'en' | 'cn';
 
+export type ViewState = 'HOME' | 'SEARCH_RESULTS' | 'TARGET_DETAIL' | 'APTAMER_DETAIL';
+
 export interface ContentText {
   hero: {
     title: string;
@@ -38,6 +40,8 @@ export interface ContentText {
 
 // Represents a single line in APTAMERS.enriched.jsonl
 export interface AptamerRecord {
+  internal_id: string; // Unique ID generated at load time for routing
+
   // Article Info
   article_title: string;
   year: number;

@@ -1,17 +1,21 @@
 
 import React, { useState } from 'react';
 import { CONTENT } from './constants';
-import { Language } from './types';
+import { Language, ViewState } from './types';
 import { StemLoopIcon, NeuralTexture, SearchIcon, ArrowRight, DatabaseIcon } from './components/Icons';
 import { ParticleBackground } from './components/ParticleBackground';
 import { SearchResults } from './components/SearchResults';
-
-type ViewState = 'HOME' | 'SEARCH_RESULTS';
+import { TargetDetailPage } from './components/TargetDetailPage';
+import { AptamerDetailPage } from './components/AptamerDetailPage';
 
 export default function App() {
   const [lang, setLang] = useState<Language>('en');
   const [view, setView] = useState<ViewState>('HOME');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Router State
+  const [selectedTarget, setSelectedTarget] = useState<string>('');
+  const [selectedAptamerId, setSelectedAptamerId] = useState<string>('');
   
   const t = CONTENT[lang];
 
@@ -26,8 +30,58 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  // --- RENDER SEARCH RESULTS VIEW ---
-  if (view === 'SEARCH_RESULTS') {
+  const handleNavigateTarget = (targetName: string) => {
+    setSelectedTarget(targetName);
+    setView('TARGET_DETAIL');
+    window.scrollTo(0, 0);
+  };
+
+  const handleNavigateAptamer = (aptamerId: string) => {
+    setSelectedAptamerId(aptamerId);
+    setView('APTAMERS_DETAIL' as ViewState); // Fixed typo in string vs type if strictly checked, using type default
+    // Or rather let's match the type definition
+    setView('APTAMER_DETAIL');
+    window.scrollTo(0, 0);
+  };
+
+  const renderInnerContent = () => {
+    switch(view) {
+        case 'SEARCH_RESULTS':
+            return (
+                <SearchResults 
+                    initialQuery={searchQuery} 
+                    onNavigateHome={handleNavigateHome} 
+                    lang={lang} 
+                    onNavigateTarget={handleNavigateTarget}
+                    onNavigateAptamer={handleNavigateAptamer}
+                />
+            );
+        case 'TARGET_DETAIL':
+            return (
+                <TargetDetailPage 
+                    targetName={selectedTarget}
+                    onNavigateAptamer={handleNavigateAptamer}
+                    onBack={handleNavigateSearch}
+                />
+            );
+        case 'APTAMER_DETAIL':
+            return (
+                <AptamerDetailPage 
+                    aptamerId={selectedAptamerId}
+                    onBack={() => {
+                        // Smart back: if we came from target list, go there, else search
+                        if (selectedTarget) setView('TARGET_DETAIL');
+                        else setView('SEARCH_RESULTS');
+                    }}
+                />
+            );
+        default:
+            return null;
+    }
+  };
+
+  // --- RENDER INNER PAGES (NOT HOME) ---
+  if (view !== 'HOME') {
     return (
       <div className="min-h-screen bg-[#fcfcfc] text-academic-900 font-sans selection:bg-slate-200">
          {/* Simple Navbar for Inner Pages */}
@@ -52,7 +106,7 @@ export default function App() {
          </nav>
          
          <div className="pt-16">
-            <SearchResults initialQuery={searchQuery} onNavigateHome={handleNavigateHome} lang={lang} />
+            {renderInnerContent()}
          </div>
       </div>
     );

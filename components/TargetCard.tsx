@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TargetGroup, AptamerRecord } from '../types';
+import { TargetGroup } from '../types';
 import { ArrowRight, StemLoopIcon } from './Icons';
 
 interface Props {
@@ -117,7 +117,7 @@ export const TargetCard: React.FC<Props> = ({ group, onViewAll, onViewAptamer })
             <div 
               key={idx} 
               className="flex items-center justify-between p-3 bg-white rounded border border-academic-100 hover:border-academic-300 cursor-pointer transition-all hover:translate-x-1 group/row"
-              onClick={() => onViewAptamer(apt.sequence_id)}
+              onClick={() => onViewAptamer(apt.internal_id)}
             >
                <div className="flex items-center gap-4 min-w-0">
                   <div className="text-academic-300 group-hover/row:text-academic-500">

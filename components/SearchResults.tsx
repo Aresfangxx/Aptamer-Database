@@ -12,9 +12,11 @@ interface Props {
   initialQuery: string;
   onNavigateHome: () => void;
   lang: Language;
+  onNavigateTarget: (targetName: string) => void;
+  onNavigateAptamer: (aptamerId: string) => void;
 }
 
-export const SearchResults: React.FC<Props> = ({ initialQuery, onNavigateHome, lang }) => {
+export const SearchResults: React.FC<Props> = ({ initialQuery, onNavigateHome, lang, onNavigateTarget, onNavigateAptamer }) => {
   const [query, setQuery] = useState(initialQuery);
   const [data, setData] = useState<TargetGroup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,10 +67,7 @@ export const SearchResults: React.FC<Props> = ({ initialQuery, onNavigateHome, l
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-      // Extract example if present: "Search by X (e.g. Value)" -> "Value"
-      // or just set the suggestion text for now
       if (suggestion.includes("e.g.") || suggestion.includes("如")) {
-          // English "e.g." or Chinese "如"
           const match = suggestion.match(/(?:e\.g\.|如)\s*([^)]+)/);
           if (match && match[1]) {
               setQuery(match[1].trim());
@@ -91,10 +90,7 @@ export const SearchResults: React.FC<Props> = ({ initialQuery, onNavigateHome, l
         onMouseEnter={() => setIsHeaderHovered(true)}
         onMouseLeave={() => setIsHeaderHovered(false)}
       >
-        {/* Interactive Background */}
         <SearchInteractiveBackground isActive={isHeaderHovered} />
-        
-        {/* White overlay gradient to make text readable but keep background visible */}
         <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] pointer-events-none z-0"></div>
 
         <div className="max-w-7xl mx-auto px-6 lg:px-12 py-8 relative z-10">
@@ -140,9 +136,7 @@ export const SearchResults: React.FC<Props> = ({ initialQuery, onNavigateHome, l
 
       {/* --- RESULTS OR GUIDE GRID --- */}
       <div className="max-w-7xl mx-auto px-6 lg:px-12 py-12 min-h-[60vh]">
-        
         {!hasQuery ? (
-            // --- EMPTY STATE / SEARCH GUIDE ---
             <div className="flex flex-col items-center justify-center py-12 animate-fade-in-up">
                  <div className="w-16 h-16 bg-academic-50 rounded-full flex items-center justify-center mb-6 border border-academic-100">
                     <SearchIcon className="w-8 h-8 text-academic-300" />
@@ -156,7 +150,6 @@ export const SearchResults: React.FC<Props> = ({ initialQuery, onNavigateHome, l
                         : '输入靶标名称、基因符号或特定适配体序列，探索包含 18,000+ 条校准记录的数据库。'
                     }
                  </p>
-                 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
                     {hints.map((hint, idx) => (
                         <button 
@@ -173,7 +166,6 @@ export const SearchResults: React.FC<Props> = ({ initialQuery, onNavigateHome, l
                  </div>
             </div>
         ) : loading ? (
-          // --- SKELETON LOADING ---
           <div className="space-y-6">
             {[1, 2, 3].map(i => (
               <div key={i} className="bg-white border border-academic-100 rounded-lg p-8 h-64 animate-pulse">
@@ -187,7 +179,6 @@ export const SearchResults: React.FC<Props> = ({ initialQuery, onNavigateHome, l
             ))}
           </div>
         ) : data.length === 0 ? (
-          // --- NO RESULTS FOUND ---
           <div className="text-center py-20">
              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-academic-100 text-academic-400 mb-6">
                <SearchIcon className="w-8 h-8" />
@@ -206,14 +197,13 @@ export const SearchResults: React.FC<Props> = ({ initialQuery, onNavigateHome, l
              </button>
           </div>
         ) : (
-          // --- RESULTS LIST ---
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-fade-in-up">
              {data.map(group => (
                <TargetCard 
                  key={group.target_name} 
                  group={group} 
-                 onViewAll={(target) => console.log(`Navigate to /target/${target}`)}
-                 onViewAptamer={(id) => console.log(`Navigate to /aptamer/${id}`)}
+                 onViewAll={onNavigateTarget}
+                 onViewAptamer={onNavigateAptamer}
                />
              ))}
           </div>

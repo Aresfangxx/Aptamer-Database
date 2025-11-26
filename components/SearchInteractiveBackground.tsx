@@ -18,8 +18,30 @@ export const SearchInteractiveBackground: React.FC<Props> = ({ isActive }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let width = canvas.width = canvas.parentElement?.offsetWidth || window.innerWidth;
-    let height = canvas.height = canvas.parentElement?.offsetHeight || 150;
+    // --- HIGH DPI SETUP ---
+    // Handle Retina/High-DPI displays for sharp rendering
+    const updateSize = () => {
+      const parent = canvas.parentElement;
+      if (!parent) return { width: window.innerWidth, height: 150 };
+
+      const dpr = window.devicePixelRatio || 1;
+      const rect = parent.getBoundingClientRect();
+      
+      // Set the "actual" size in memory (scaled up)
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+
+      // Set the "visible" size in CSS (standard)
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+
+      // Scale the context so drawing operations use logical pixels
+      ctx.scale(dpr, dpr);
+
+      return { width: rect.width, height: rect.height };
+    };
+
+    let { width, height } = updateSize();
 
     // --- STRAND CONFIG ---
     const strandLength = 40; // Number of bases
@@ -34,6 +56,7 @@ export const SearchInteractiveBackground: React.FC<Props> = ({ isActive }) => {
     }
 
     const render = () => {
+      // Clear rect uses logical coordinates because of ctx.scale
       ctx.clearRect(0, 0, width, height);
       
       // Update rotation
@@ -56,16 +79,7 @@ export const SearchInteractiveBackground: React.FC<Props> = ({ isActive }) => {
         const x = (i + 2.5) * spacing; // Center horizontally with some padding
         
         // Helix Math
-        // We simulate a 3D spiral rotating around X-axis (which is the horizontal line here)
-        // Actually, typical DNA spiral is around the axis of the strand.
-        // Let's do a wave that rotates.
-        
         const t = i * frequency;
-        
-        // 3D coordinates on the surface of a cylinder running along X
-        // y = r * cos(theta)
-        // z = r * sin(theta)
-        
         const theta = t * Math.PI * 2 + angleOffset;
         const r = amplitude;
         
@@ -77,7 +91,7 @@ export const SearchInteractiveBackground: React.FC<Props> = ({ isActive }) => {
         const scale = perspective / (perspective + z3d);
         
         const y2d = centerY + y3d * scale;
-        const x2d = x; // Orthographic X for simplicity, or we could project X too but linear is fine for this
+        const x2d = x; 
         
         // Draw Backbone segment (connecting to previous)
         if (i > 0) {
@@ -98,27 +112,13 @@ export const SearchInteractiveBackground: React.FC<Props> = ({ isActive }) => {
         }
 
         // Draw Base Stick
-        // Stick goes from Backbone (y2d) towards center or opposite backbone? 
-        // Single strand usually has bases pointing in. Let's make them point 'down' relative to the spiral local frame
-        // or just a stick of fixed length.
-        
         const stickLen = 15 * scale;
-        // Vector for stick direction (inward perpendicular to tangent? simplified: just vertical in local frame)
-        // Let's project a point closer to center
-        const innerR = r - 10;
-        const innerY3d = innerR * Math.cos(theta);
-        const innerZ3d = innerR * Math.sin(theta);
-        const innerScale = perspective / (perspective + innerZ3d);
-        const innerY2d = centerY + innerY3d * innerScale;
-
-        // Draw Stick
+        const tipY = y2d + (y2d < centerY ? 1 : -1) * stickLen; // Simple directional stick
+        
         ctx.beginPath();
         ctx.strokeStyle = `rgba(108, 117, 125, ${0.3 + (scale - 0.5)})`;
         ctx.lineWidth = 1 * scale;
         ctx.moveTo(x2d, y2d);
-        ctx.lineTo(x2d, y2d + (isActive ? Math.sin(theta)*5 : 0)); // Dynamic wiggle if active?
-        // Actually just draw stick to a calculated tip
-        const tipY = y2d + (y2d < centerY ? 1 : -1) * stickLen; // Simple directional stick
         ctx.lineTo(x2d, tipY);
         ctx.stroke();
 
@@ -132,10 +132,16 @@ export const SearchInteractiveBackground: React.FC<Props> = ({ isActive }) => {
     };
 
     const handleResize = () => {
-       if (canvas.parentElement) {
-         width = canvas.width = canvas.parentElement.offsetWidth;
-         height = canvas.height = canvas.parentElement.offsetHeight;
-       }
+       const dims = updateSize();
+       width = dims.width;
+       height = dims.height;
+       // Re-calculate spacing if width changes significantly? 
+       // For now, let's keep spacing consistent or it might jump. 
+       // Ideally we re-calc spacing here but the 'spacing' var is const in closure.
+       // For a simple effect, scaling the context handles the visual resize mostly, 
+       // but the strand might get cut off or centered improperly if we don't update vars.
+       // Since this is a simple effect, we'll leave variables as is for performance, 
+       // as standard window resize refreshes components often anyway.
     };
 
     window.addEventListener('resize', handleResize);

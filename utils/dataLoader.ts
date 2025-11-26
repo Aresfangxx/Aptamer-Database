@@ -1,126 +1,180 @@
 
 import { AptamerRecord, TargetGroup } from '../types';
 
-// Fallback data in case the file fetch fails completely (network error)
-const MOCK_DATA: AptamerRecord[] = [
-  { target_name: "VEGF165", target_type: "Protein", gene_symbol: "VEGFA", year: 2010, level: 'P', pKd: 9.2, affinity: "0.6 nM", sequence_id: "V7t1", aptamer_sequence: "CCGGTGGGTGGGTGGGGGGGTGCGG", best: true, article_title: "Mock Article 1", journal: "JACS", doi: "" },
-  { target_name: "Thrombin", target_type: "Protein", gene_symbol: "F2", year: 1992, level: 'P', pKd: 9.0, affinity: "1 nM", sequence_id: "TBA", aptamer_sequence: "GGTTGGTGTGGTTGG", best: true, article_title: "Thrombin Binding Aptamer", journal: "Nature", doi: "" },
-  { target_name: "ATP", target_type: "Small Molecule", year: 1995, level: 'P', pKd: 6.0, affinity: "1 uM", sequence_id: "ATP-40", aptamer_sequence: "ACCTGGGGGAGTAT", best: true, article_title: "Classic ATP", journal: "Chemistry", doi: "" },
+// Singleton cache for loaded data
+let cachedRecords: AptamerRecord[] | null = null;
+
+// Fallback data
+const MOCK_DATA_SOURCE: any[] = [
+  { "Target name": "VEGF165", "Target type": "Protein", "Gene_Symbol": "VEGFA", "Year": "2010", "Level": "P", "pKd": 9.2, "Affinity": "0.6 nM", "Sequence ID": "V7t1", "Aptamer sequence": "CCGGTGGGTGGGTGGGGGGGTGCGG", "Best": true, "Article title": "Mock Article 1", "Journal": "JACS" },
+  { "Target name": "Thrombin", "Target type": "Protein", "Gene_Symbol": "F2", "Year": "1992", "Level": "P", "pKd": 9.0, "Affinity": "1 nM", "Sequence ID": "TBA", "Aptamer sequence": "GGTTGGTGTGGTTGG", "Best": true, "Article title": "Thrombin Binding Aptamer", "Journal": "Nature" },
+  { "Target name": "ATP", "Target type": "Small Molecule", "Year": "1995", "Level": "P", "pKd": 6.0, "Affinity": "1 uM", "Sequence ID": "ATP-40", "Aptamer sequence": "ACCTGGGGGAGTAT", "Best": true, "Article title": "Classic ATP", "Journal": "Chemistry" },
 ];
 
-export async function fetchAndProcessData(query: string): Promise<TargetGroup[]> {
-  let rawData: AptamerRecord[] = [];
+/**
+ * Loads and parses the raw data once. Returns the cached array.
+ */
+async function loadRawData(): Promise<AptamerRecord[]> {
+  if (cachedRecords) return cachedRecords;
 
+  let rawList: any[] = [];
   try {
-    // UPDATED: Fetch from the user's uploaded file APTAMERS.jsonl
     const response = await fetch('/APTAMERS.jsonl');
-    
-    if (!response.ok) {
-        console.warn(`File fetch failed: ${response.status} ${response.statusText}`);
-        throw new Error("File not found");
-    }
-    
+    if (!response.ok) throw new Error("File fetch failed");
     const text = await response.text();
-    
-    // Parse JSONL line by line
-    rawData = text.trim().split('\n').map(line => {
-        try { 
-            const record = JSON.parse(line);
-            // Data Cleaning: Ensure pKd is a number if it exists
-            if (record.pKd && typeof record.pKd === 'string') {
-                record.pKd = parseFloat(record.pKd);
-            }
-            return record; 
-        } catch(e) { 
-            return null; 
-        }
-    }).filter(x => x !== null) as AptamerRecord[];
-
-    console.log(`Loaded ${rawData.length} records.`);
-    
-  } catch (err) {
-    console.error("Could not load APTAMERS.jsonl, falling back to mock data.", err);
-    rawData = MOCK_DATA;
+    rawList = text.trim().split('\n').map(line => {
+      try { return JSON.parse(line); } catch { return null; }
+    }).filter(Boolean);
+    console.log(`Parsed ${rawList.length} lines from file.`);
+  } catch (e) {
+    console.warn("Using mock data due to load error:", e);
+    rawList = MOCK_DATA_SOURCE;
   }
 
-  // 1. Filter by Query (Fuzzy on Target Name, Gene Symbol, or Sequence)
-  const lowerQuery = query.toLowerCase().trim();
-  
-  const filtered = rawData.filter(r => {
-    const tName = r.target_name ? r.target_name.toLowerCase() : "";
-    const gene = r.gene_symbol ? r.gene_symbol.toLowerCase() : "";
-    const seq = r.aptamer_sequence ? r.aptamer_sequence.toLowerCase() : "";
-    const id = r.sequence_id ? r.sequence_id.toLowerCase() : "";
-    
-    return tName.includes(lowerQuery) || 
-           gene.includes(lowerQuery) || 
-           seq.includes(lowerQuery) ||
-           id.includes(lowerQuery);
+  // Process and Map
+  cachedRecords = rawList.map((raw, index) => {
+    // Generate a unique ID if one isn't present. Using index as simple fallback.
+    const internal_id = `apt-${index}-${Date.now().toString(36)}`;
+
+    const record: AptamerRecord = {
+      internal_id,
+      article_title: raw["Article title"] || "Unknown Title",
+      year: parseInt(raw["Year"]) || 0,
+      journal: raw["Journal"] || "",
+      doi: raw["Doi"] || "",
+
+      target_name: raw["Target name"] || "Unknown Target",
+      target_type: raw["Target type"] || "Unknown Type",
+      gene_symbol: raw["Gene_Symbol"] || "", // Original data key often has underscore
+      external_id: raw["External_ID"],
+      external_name: raw["External_Name"],
+      id_type: raw["ID_Type"],
+
+      sequence_id: raw["Sequence ID"] || "Unnamed",
+      aptamer_sequence: raw["Aptamer sequence"] || "",
+
+      pKd: raw["pKd"] ? parseFloat(raw["pKd"]) : undefined,
+      affinity: raw["Affinity"] || "",
+      buffer_condition: raw["Buffer condition"] || "",
+      best: raw["Best"] === true,
+
+      level: raw["Level"] || "C"
+    };
+    return record;
   });
 
-  // 2. Aggregate by Target Name
+  return cachedRecords!;
+}
+
+/**
+ * Searches and Aggregates data for the Search Results Page
+ */
+export async function fetchAndProcessData(query: string): Promise<TargetGroup[]> {
+  const records = await loadRawData();
+  const lowerQuery = query.toLowerCase().trim();
+
+  // 1. Filter
+  const filtered = records.filter(r => {
+    return (r.target_name || "").toLowerCase().includes(lowerQuery) || 
+           (r.gene_symbol || "").toLowerCase().includes(lowerQuery) || 
+           (r.aptamer_sequence || "").toLowerCase().includes(lowerQuery) ||
+           (r.sequence_id || "").toLowerCase().includes(lowerQuery);
+  });
+
+  // 2. Aggregate
   const map = new Map<string, AptamerRecord[]>();
   filtered.forEach(r => {
-    // Normalize target name key
     const key = r.target_name || "Unknown Target";
     if (!map.has(key)) map.set(key, []);
     map.get(key)?.push(r);
   });
 
-  // 3. Process Groups into TargetGroup objects
+  // 3. Build Groups
   const groups: TargetGroup[] = [];
-
-  map.forEach((records, targetName) => {
-    // Basic stats
-    const total = records.length;
-    const pRecs = records.filter(r => r.level === 'P');
-    const aRecs = records.filter(r => r.level === 'A');
-    const bRecs = records.filter(r => r.level === 'B');
-    const cRecs = records.filter(r => r.level === 'C');
+  map.forEach((recs, targetName) => {
+    const pRecs = recs.filter(r => r.level === 'P');
+    const aRecs = recs.filter(r => r.level === 'A');
+    const bRecs = recs.filter(r => r.level === 'B');
+    const cRecs = recs.filter(r => r.level === 'C');
     
-    const years = records.map(r => r.year).filter(y => y);
+    const years = recs.map(r => r.year).filter(y => y > 0);
     const yearMin = years.length > 0 ? Math.min(...years) : 0;
     const yearMax = years.length > 0 ? Math.max(...years) : 0;
 
-    // Determine Preview Strategy
+    // Preview Logic
     let previewRecords: AptamerRecord[] = [];
     let previewType: 'P' | 'A' | 'BC' = 'BC';
 
     if (pRecs.length > 0) {
       previewType = 'P';
-      // Sort P by pKd descending (higher affinity/pK_d first)
-      // Safety check: ensure pKd is treated as number
-      previewRecords = pRecs.sort((a, b) => (Number(b.pKd) || 0) - (Number(a.pKd) || 0)).slice(0, 5);
+      previewRecords = pRecs.sort((a, b) => (b.pKd || 0) - (a.pKd || 0)).slice(0, 5);
     } else if (aRecs.length > 0) {
       previewType = 'A';
-      // Sort A by pKd descending
-      previewRecords = aRecs.sort((a, b) => (Number(b.pKd) || 0) - (Number(a.pKd) || 0)).slice(0, 5);
+      previewRecords = aRecs.sort((a, b) => (b.pKd || 0) - (a.pKd || 0)).slice(0, 5);
     } else {
       previewType = 'BC';
-      // Sort B/C by year descending (newest first) as proxy for relevance
-      const combined = [...bRecs, ...cRecs];
-      previewRecords = combined.sort((a, b) => (b.year || 0) - (a.year || 0)).slice(0, 3);
+      previewRecords = [...bRecs, ...cRecs].sort((a, b) => b.year - a.year).slice(0, 3);
     }
 
     groups.push({
       target_name: targetName,
-      target_type: records[0].target_type || "Unknown",
-      gene_symbol: records[0].gene_symbol,
-      total_aptamers: total,
+      target_type: recs[0].target_type,
+      gene_symbol: recs[0].gene_symbol,
+      total_aptamers: recs.length,
       count_P: pRecs.length,
       count_A: aRecs.length,
       count_B: bRecs.length,
       count_C: cRecs.length,
       year_min: yearMin,
       year_max: yearMax,
-      records: records,
+      records: recs,
       preview_records: previewRecords,
       preview_type: previewType
     });
   });
 
-  // Sort groups by total aptamers (popularity) descending
-  groups.sort((a, b) => b.total_aptamers - a.total_aptamers);
+  return groups.sort((a, b) => b.total_aptamers - a.total_aptamers);
+}
 
-  return groups;
+/**
+ * Fetches a specific target's full aggregated data
+ */
+export async function fetchTargetByName(name: string): Promise<TargetGroup | null> {
+  const records = await loadRawData();
+  const targetRecords = records.filter(r => r.target_name === name);
+
+  if (targetRecords.length === 0) return null;
+
+  // Reuse logic or simplify for single group
+  const recs = targetRecords;
+  const pRecs = recs.filter(r => r.level === 'P');
+  const aRecs = recs.filter(r => r.level === 'A');
+  const bRecs = recs.filter(r => r.level === 'B');
+  const cRecs = recs.filter(r => r.level === 'C');
+  const years = recs.map(r => r.year).filter(y => y > 0);
+
+  // We don't strictly need preview logic here as we show all, but we populate it for consistency
+  return {
+    target_name: name,
+    target_type: recs[0].target_type,
+    gene_symbol: recs[0].gene_symbol,
+    total_aptamers: recs.length,
+    count_P: pRecs.length,
+    count_A: aRecs.length,
+    count_B: bRecs.length,
+    count_C: cRecs.length,
+    year_min: years.length ? Math.min(...years) : 0,
+    year_max: years.length ? Math.max(...years) : 0,
+    records: recs, // All records
+    preview_records: [],
+    preview_type: 'BC'
+  };
+}
+
+/**
+ * Fetches a single aptamer record by its internal unique ID
+ */
+export async function fetchAptamerById(id: string): Promise<AptamerRecord | null> {
+  const records = await loadRawData();
+  return records.find(r => r.internal_id === id) || null;
 }
