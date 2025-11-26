@@ -38,10 +38,9 @@ export const SearchInteractiveBackground: React.FC<Props> = ({ isActive }) => {
       
       // Update rotation
       if (isActive) {
-        rotationRef.current += 0.05; // Spin speed
+        rotationRef.current += 0.004; // Spin speed: 2x the idle speed
       } else {
-        // Slowly return to 0 or just stop? Let's just slow down drastically or stop.
-        // For smoother feel, maybe just drift very slowly
+        // Idle drift
         rotationRef.current += 0.002;
       }
 

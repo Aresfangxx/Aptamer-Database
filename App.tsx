@@ -15,20 +15,14 @@ export default function App() {
   
   const t = CONTENT[lang];
 
-  // Modified to switch view immediately on submit if coming from elsewhere, 
-  // but logic for Hero input is handled via onFocus now.
-  const handleSearchSubmit = (e?: React.FormEvent, term?: string) => {
-    if (e) e.preventDefault();
-    const q = term || searchQuery;
-    // We allow empty query to go to search results now (it shows the guide)
-    setSearchQuery(q);
-    setView('SEARCH_RESULTS');
-    window.scrollTo(0, 0);
-  };
-
   const handleNavigateHome = () => {
     setView('HOME');
     setSearchQuery('');
+    window.scrollTo(0, 0);
+  };
+
+  const handleNavigateSearch = () => {
+    setView('SEARCH_RESULTS');
     window.scrollTo(0, 0);
   };
 
@@ -77,7 +71,12 @@ export default function App() {
         </div>
         <div className="flex items-center gap-6">
           <div className="hidden md:flex gap-6 text-sm text-academic-600 font-medium">
-             <a href="#search" className="hover:text-academic-900 transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-[-4px] after:left-0 after:bg-academic-900 after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left">Search</a>
+             <button 
+               onClick={handleNavigateSearch}
+               className="hover:text-academic-900 transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-[-4px] after:left-0 after:bg-academic-900 after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left"
+             >
+               Search
+             </button>
              <a href="#about" className="hover:text-academic-900 transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-[-4px] after:left-0 after:bg-academic-900 after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left">About</a>
              <a href="#data" className="hover:text-academic-900 transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-[-4px] after:left-0 after:bg-academic-900 after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left">Data</a>
              <a href="#api" className="hover:text-academic-900 transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-[-4px] after:left-0 after:bg-academic-900 after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left">API</a>
@@ -128,11 +127,7 @@ export default function App() {
               {/* Quick Actions / CTA in Hero */}
               <div className="pt-4 flex flex-wrap gap-4 animate-fade-in-up delay-500">
                  <button 
-                  onClick={() => {
-                    // Navigate to search immediately
-                    setView('SEARCH_RESULTS');
-                    window.scrollTo(0,0);
-                  }}
+                  onClick={handleNavigateSearch}
                   className="bg-academic-900 text-white px-8 py-3 rounded-sm font-medium hover:bg-academic-800 transition-all shadow-sm hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
                  >
                    {t.search.buttons[3]}
@@ -173,15 +168,13 @@ export default function App() {
                 <input 
                   type="text" 
                   value={searchQuery}
-                  onFocus={() => {
-                    setView('SEARCH_RESULTS');
-                    window.scrollTo(0,0);
-                  }}
+                  onFocus={handleNavigateSearch}
                   readOnly // It redirects immediately, so reading only is fine to prevent flickering
                   placeholder={t.search.placeholder}
                   className="w-full bg-transparent py-4 text-lg text-academic-900 placeholder:text-academic-400 focus:outline-none font-light cursor-text"
                 />
                 <button 
+                  onClick={handleNavigateSearch}
                   className="bg-academic-900 text-white px-6 py-2.5 rounded m-1.5 font-medium text-sm hover:bg-academic-800 transition-colors shadow-sm"
                 >
                   Search
@@ -190,7 +183,7 @@ export default function App() {
              
              <div className="mt-6 flex flex-wrap justify-center gap-3">
                {t.search.buttons.slice(0, 3).map((btn, idx) => (
-                 <button key={idx} onClick={() => { setView('SEARCH_RESULTS'); window.scrollTo(0,0); }} className="text-sm px-4 py-2 bg-white border border-academic-200 rounded text-academic-600 hover:border-academic-400 hover:text-academic-900 hover:bg-academic-50 transition-all hover:-translate-y-0.5 shadow-sm hover:shadow">
+                 <button key={idx} onClick={handleNavigateSearch} className="text-sm px-4 py-2 bg-white border border-academic-200 rounded text-academic-600 hover:border-academic-400 hover:text-academic-900 hover:bg-academic-50 transition-all hover:-translate-y-0.5 shadow-sm hover:shadow">
                    {btn}
                  </button>
                ))}
